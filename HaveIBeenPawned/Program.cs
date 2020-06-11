@@ -18,9 +18,6 @@
  */
 
 using System;
-using System.IO;
-using System.Net;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace HaveIBeenPawned
@@ -29,75 +26,38 @@ namespace HaveIBeenPawned
     {
         static void Main(string[] args)
         {
-            if (args.Length == 0)
+            try
             {
-                DisplayHelp();
-            }
-            else if (args.Length == 1)
-            {
-                var pawnageInfo = GetPawnageInfo(args[0]);
-                if (pawnageInfo == null)
+                if (args.Length == 0)
                 {
-                    Console.WriteLine("You haven't been pawned - according to haveibeenpwned.com.");
+                    DisplayHelp();
+                }
+                else if (args.Length == 1)
+                {
+                    var pawnageInfo = PawnageHelper.GetPawnageInfo(args[0]);
+                    if (pawnageInfo is null)
+                    {
+                        Console.WriteLine("You haven't been pawned - according to haveibeenpwned.com.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("According to haveibeenpwned.com you have been pawned.");
+                        Console.WriteLine("SHA1 hash of pawned password: {0}", pawnageInfo.Split(':')[0]);
+                        Console.WriteLine("The given password has been pawned {0} times.", pawnageInfo.Split(':')[1].Trim());
+                    }
                 }
                 else
                 {
-                    Console.WriteLine("According to haveibeenpwned.com you have been pawned.");
-                    Console.WriteLine("SHA1 hash of pawned password: {0}", pawnageInfo.Split(':')[0]);
-                    Console.WriteLine("The given password has been pawned {0} times.", pawnageInfo.Split(':')[1].Trim());
+                    Console.WriteLine("You provided too many arguments.");
+                    Environment.Exit(-1);
                 }
             }
-            else
+            catch (Exception exception)
             {
-                Console.WriteLine("You provided too many arguments.");
+                Console.WriteLine("Error occurred.");
+                Console.WriteLine(exception.Message);
+                Console.WriteLine(exception.StackTrace);
                 Environment.Exit(-1);
-            }
-        }
-
-        /// <summary>
-        /// Gets the one-line pawnage info from the haveibeenpwned.com API pertaining to the provided <paramref name="password"/>.
-        /// </summary>
-        /// <param name="password">The password for which we want to get the pawnage info.</param>
-        /// <returns>A string which contains the SHA1 hash of the <paramref name="password"/> and the number of times 
-        /// it's been known to be pawned, separated by a ':'.</returns>
-        private static string GetPawnageInfo(string password)
-        {
-            // computing password hash and converting it to HEX string
-            var sha1 = new SHA1CryptoServiceProvider();
-            var hash = sha1.ComputeHash(Encoding.UTF8.GetBytes(password));
-            var hexString = ConvertToHexString(hash);
-
-            // we only send the first 5 letters of the password hash's HEX
-            var url = "https://api.pwnedpasswords.com/range/" + hexString.Substring(0, 5);
-            var webApiResponseContent = GetWebResponseContent(url);
-            var lines = webApiResponseContent.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var line in lines)
-            {
-                if (line.ToLower().Contains(hexString.Substring(5).ToLower()))
-                {
-                    // we can return because hashes are supposed to be unique. If we found one, that's it.
-                    return line;
-                }
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Gets the content of the response from the web server.
-        /// </summary>
-        /// <param name="url">The URL to call the web server.</param>
-        /// <returns>The response content.</returns>
-        private static string GetWebResponseContent(string url)
-        {
-            var request = WebRequest.Create(url);
-            var response = request.GetResponse();
-            using (var dataStream = response.GetResponseStream())
-            {
-                using (var reader = new StreamReader(dataStream))
-                {
-                    return reader.ReadToEnd();
-                }
             }
         }
 
@@ -106,25 +66,14 @@ namespace HaveIBeenPawned
         /// </summary>
         private static void DisplayHelp()
         {
-            Console.WriteLine("This tool calls the haveibeenpwned.com web API to find out if the provided password has been known to be pawned." +
-                " Don't worry, this is safe, your password will not be sent out to the internet.");
-            Console.WriteLine("Usage: haveibeenpwned MyPassword");
-        }
-
-        /// <summary>
-        /// Converts the specified <see cref="byte"/>[] to a HEX string.
-        /// </summary>
-        /// <param name="array">The <see cref="byte"/> array to convert to a HEX string.</param>
-        /// <returns>The <see cref="byte"/>[] as a HEX string.</returns>
-        private static string ConvertToHexString(byte[] array)
-        {
-            StringBuilder hex = new StringBuilder(array.Length * 2);
-            foreach (byte b in array)
-            {
-                hex.AppendFormat("{0:x2}", b);
-            }
-                
-            return hex.ToString();
+            var helpText = new StringBuilder();
+            helpText.AppendLine("This tool calls the haveibeenpwned.com web API to find out if the provided");
+            helpText.AppendLine("password has been known to be pawned. (The password should contain no whitespace");
+            helpText.AppendLine("characters.) Don't worry, this is safe, your password will not be sent out to the");
+            helpText.AppendLine("internet.");
+            helpText.AppendLine();
+            helpText.AppendLine("Usage: haveibeenpwned MyPassword");
+            Console.WriteLine(helpText.ToString());
         }
     }
 }
